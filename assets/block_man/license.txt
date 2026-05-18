@@ -1,0 +1,11 @@
+Model Information:
+* title:	CC0 Block Man Auto Rigged Humanoid
+* source:	https://sketchfab.com/3d-models/cc0-block-man-auto-rigged-humanoid-55571b5d47614b4c9973e853fc6b6a72
+* author:	Liam Pillay (https://sketchfab.com/makestuffstudio)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "CC0 Block Man Auto Rigged Humanoid" (https://sketchfab.com/3d-models/cc0-block-man-auto-rigged-humanoid-55571b5d47614b4c9973e853fc6b6a72) by Liam Pillay (https://sketchfab.com/makestuffstudio) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
