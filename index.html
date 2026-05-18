@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hand Examination IVR — Demo v5 (hand tracking + palpation zones)</title>
+  <meta charset="utf-8">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #111; }
+    #info-2d {
+      position: fixed; top: 12px; left: 12px; z-index: 1000;
+      background: rgba(17, 24, 39, 0.92); color: #fff;
+      padding: 12px 16px; border-radius: 8px; max-width: 400px;
+      font-size: 13px; line-height: 1.5; border: 1px solid #374151;
+    }
+    #info-2d a { color: #FCD34D; }
+    #info-2d code { background: #1F2937; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+    #scene-indicator {
+      position: fixed; top: 12px; right: 12px; z-index: 1000;
+      background: #10B981; color: #fff;
+      padding: 8px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: bold;
+    }
+    #asset-status {
+      position: fixed; bottom: 12px; left: 12px; z-index: 1000;
+      background: rgba(31, 41, 55, 0.85); color: #fff;
+      padding: 8px 14px; border-radius: 4px; font-size: 11px;
+      max-width: 380px; line-height: 1.6;
+    }
+    .status-item { display: block; }
+    .status-loaded { color: #10B981; }
+    .status-error { color: #EF4444; }
+    .status-pending { color: #94A3B8; }
+    #hand-status {
+      position: fixed; bottom: 12px; right: 12px; z-index: 1000;
+      background: rgba(31, 41, 55, 0.85); color: #fff;
+      padding: 8px 14px; border-radius: 4px; font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div id="info-2d">
+    <strong>Hand Examination IVR — demo v5 (HAND TRACKING)</strong><br>
+    Quest 3 hand tracking ile interaktif muayene. Öğrenci parmakları scene içinde görünür, hand model üzerindeki <strong>8 palpasyon noktasına</strong> dokunarak maneuver tetikler.<br>
+    <br>
+    <strong>⚠️ HTTPS ŞART:</strong> Hand tracking için Quest 3 browser HTTPS gerektirir. <code>file://</code> ve <code>http://localhost</code> ÇALIŞMAZ. GitHub Pages deploy zorunlu.<br>
+    <br>
+    <strong>Dual mode:</strong> hem hand tracking hem gaze cursor aktif (controller'sız da çalışır).<br>
+    <strong>Mod:</strong> <a href="?mode=sham">?mode=sham</a> · <a href="?">default</a>
+  </div>
+
+  <div id="scene-indicator">Scene 1 / 5 — Lobby</div>
+
+  <div id="asset-status">
+    <strong>Assetler:</strong>
+    <span class="status-item status-pending" id="status-sky">⏳ Klinik skybox</span>
+    <span class="status-item status-pending" id="status-patient">⏳ Hasta (Block Man)</span>
+    <span class="status-item status-pending" id="status-hand">⏳ El modeli (Novaky)</span>
+  </div>
+
+  <div id="hand-status">Hand tracking: ⏳ bekleniyor</div>
+
+  <a-scene background="color: #0F172A" cursor="rayOrigin: mouse" raycaster="objects: .clickable, .palpation-zone">
+
+    <a-assets timeout="20000">
+      <img id="hospital-sky" src="./assets/hospital_room.jpg" crossorigin="anonymous">
+      <a-asset-item id="patient-model" src="./assets/block_man/scene.gltf"></a-asset-item>
+      <a-asset-item id="hand-model" src="./assets/hand_novaky/scene.gltf"></a-asset-item>
+    </a-assets>
+
+    <a-sky id="sky-clinical" src="#hospital-sky" visible="false"></a-sky>
+
+    <!-- ====================================================== -->
+    <!-- SCENE 1 — LOBBY -->
+    <!-- ====================================================== -->
+    <a-entity id="scene-1-lobby" visible="true">
+      <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#1E293B"></a-plane>
+      <a-entity position="0 2.5 -3.5">
+        <a-text value="Hand Examination IVR — Hand Tracking" align="center" color="#FCD34D" width="8"></a-text>
+        <a-text value="Parmaklarla interaktif muayene (Quest 3)" position="0 -0.5 0" align="center" color="#94A3B8" width="6"></a-text>
+      </a-entity>
+      <a-entity position="0 1.4 -3">
+        <a-text value="Bir sonraki sahnede klinige geceksiniz.&#10;Hand model uzerindeki yesil noktalara&#10;parmaginizla dokunarak maneuver tetiklenir." align="center" color="#CBD5E1" width="4"></a-text>
+      </a-entity>
+      <a-box class="clickable scene-nav" position="0 0.3 -2.5"
+             width="1.8" height="0.4" depth="0.05" color="#10B981"
+             data-next-scene="2">
+        <a-text value="Klinige gec -> Muayene" position="0 0 0.04" align="center" color="#FFF" width="3"></a-text>
+      </a-box>
+    </a-entity>
+
+    <!-- ====================================================== -->
+    <!-- SCENE 2 — KLINIK + HAND TRACKING -->
+    <!-- ====================================================== -->
+    <a-entity id="scene-2-pratik" visible="false">
+
+      <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#94A3B8" opacity="0.4"></a-plane>
+
+      <!-- Muayene masası -->
+      <a-box position="0 0.4 -1.2" width="1.4" height="0.06" depth="0.7" color="#6B7280"></a-box>
+      <a-box position="-0.6 0.2 -1.2" width="0.05" height="0.4" depth="0.05" color="#4B5563"></a-box>
+      <a-box position="0.6 0.2 -1.2" width="0.05" height="0.4" depth="0.05" color="#4B5563"></a-box>
+
+      <!-- Hasta sandalyesi -->
+      <a-box position="0 0.25 -2.2" width="0.5" height="0.05" depth="0.5" color="#1E40AF"></a-box>
+      <a-box position="0 0.65 -2.45" width="0.5" height="0.7" depth="0.05" color="#1E40AF"></a-box>
+
+      <!-- Block Man patient -->
+      <a-entity id="patient-entity"
+                gltf-model="#patient-model"
+                position="0 0 -2.5"
+                scale="0.15 0.15 0.15"
+                rotation="0 180 0"></a-entity>
+
+      <!--
+        HAND MODEL + PALPATION ZONES
+        Wrapper entity: hand world position belirler
+        Inner entity: model + zones (sabit relative position'lar)
+      -->
+      <a-entity id="hand-wrapper" position="0 0.5 -1.2">
+
+        <!-- Hand glTF (Novaky) -->
+        <a-entity id="hand-entity"
+                  gltf-model="#hand-model"
+                  scale="0.03 0.03 0.03"
+                  position="0.15 0.3 0.4"
+                  rotation="0 0 0"></a-entity>
+
+        <!--
+          8 PALPATION ZONES — invisible sphere'ler, hand model üzerinde
+          Relative position: hand-wrapper'a göre, hand model'in görünür kısmına yakın
+          Custom component "palpation-zone" attached
+          Color: hover'da yeşil, active'de sarı
+        -->
+        <!-- Tinel: volar bilek üzerinde median sinir trase -->
+        <a-sphere class="palpation-zone" data-maneuver="tinel"
+                  position="-0.08 0.02 0.1" radius="0.025"
+                  color="#10B981" opacity="0.4"
+                  palpation-zone="maneuver: tinel">
+          <a-text value="T" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+
+        <!-- Phalen: bilek dorsal -->
+        <a-sphere class="palpation-zone" data-maneuver="phalen"
+                  position="-0.08 0.10 0.1" radius="0.025"
+                  color="#3B82F6" opacity="0.4"
+                  palpation-zone="maneuver: phalen">
+          <a-text value="P" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+
+        <!-- Finkelstein: 1. dorsal kompartman, anatomik snuffbox civarı -->
+        <a-sphere class="palpation-zone" data-maneuver="finkelstein"
+                  position="0.0 0.08 0.0" radius="0.025"
+                  color="#F59E0B" opacity="0.4"
+                  palpation-zone="maneuver: finkelstein">
+          <a-text value="F" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+
+        <!-- Watson: skafoid tüberkül, volar -->
+        <a-sphere class="palpation-zone" data-maneuver="watson"
+                  position="0.0 0.02 0.05" radius="0.025"
+                  color="#A78BFA" opacity="0.4"
+                  palpation-zone="maneuver: watson">
+          <a-text value="W" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+
+        <!-- Grind: 1. CMC, başparmak tabanı -->
+        <a-sphere class="palpation-zone" data-maneuver="grind"
+                  position="0.05 0.05 -0.1" radius="0.025"
+                  color="#EF4444" opacity="0.4"
+                  palpation-zone="maneuver: grind">
+          <a-text value="G" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+
+        <!-- FCR: palmar bilek radial taraf -->
+        <a-sphere class="palpation-zone" data-maneuver="fcr"
+                  position="-0.05 0.02 0.05" radius="0.025"
+                  color="#06B6D4" opacity="0.4"
+                  palpation-zone="maneuver: fcr">
+          <a-text value="C" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+
+        <!-- FDS: PIP eklem, 3. parmak -->
+        <a-sphere class="palpation-zone" data-maneuver="fds"
+                  position="0.0 0.05 -0.18" radius="0.025"
+                  color="#EC4899" opacity="0.4"
+                  palpation-zone="maneuver: fds">
+          <a-text value="S" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+
+        <!-- Bunnel: MCP, intrinsic kaslar -->
+        <a-sphere class="palpation-zone" data-maneuver="bunnel"
+                  position="0.0 0.07 -0.05" radius="0.025"
+                  color="#84CC16" opacity="0.4"
+                  palpation-zone="maneuver: bunnel">
+          <a-text value="B" position="0 0 0.03" align="center" color="#FFF" width="3"></a-text>
+        </a-sphere>
+      </a-entity>
+
+      <!-- Info panel (sağda, klinisyenin yan tarafı) -->
+      <a-entity id="info-panel" position="1.2 1.3 -1.5" visible="false" rotation="0 -20 0">
+        <a-plane width="2.2" height="1.3" color="#1F2937" opacity="0.95"></a-plane>
+        <a-text id="info-text" value="" align="center" color="#FFF" position="0 0 0.02" width="2.0"></a-text>
+      </a-entity>
+
+      <!-- Progress + title -->
+      <a-entity position="0 2.4 -3.5">
+        <a-plane width="4" height="0.5" color="#0F172A" opacity="0.8"></a-plane>
+        <a-text value="Hand Examination - Hand Tracking Modu" align="center" color="#FCD34D" width="5" position="0 0 0.01"></a-text>
+        <a-text id="progress-text" value="0 / 8 maneuver palpe edildi" position="0 -0.4 0.01" align="center" color="#94A3B8" width="4"></a-text>
+      </a-entity>
+
+      <a-box id="proceed-quiz-btn" class="clickable scene-nav" position="0 0.5 -0.6"
+             width="1.8" height="0.35" depth="0.05" color="#374151"
+             data-next-scene="3" visible="false">
+        <a-text value="Quiz'e gec ->" position="0 0 0.04" align="center" color="#FFF" width="3"></a-text>
+      </a-box>
+    </a-entity>
+
+    <!-- ====================================================== -->
+    <!-- SCENE 3-5 (quiz, anketler, teşekkür) — v4'ten aynı -->
+    <!-- ====================================================== -->
+    <a-entity id="scene-3-quiz" visible="false">
+      <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#1E293B"></a-plane>
+      <a-entity position="0 2 -3">
+        <a-text value="Quiz placeholder" align="center" color="#FCD34D" width="6"></a-text>
+        <a-text value="(v6'da 15 MCQ ile entegre)" position="0 -0.6 0" align="center" color="#94A3B8" width="4"></a-text>
+      </a-entity>
+      <a-box class="clickable scene-nav" position="0 0.3 -2.5" width="1.5" height="0.4" depth="0.05" color="#10B981" data-next-scene="4">
+        <a-text value="Bitir" position="0 0 0.04" align="center" color="#FFF" width="3"></a-text>
+      </a-box>
+    </a-entity>
+
+    <a-entity id="scene-4-anket" visible="false">
+      <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#312E81"></a-plane>
+      <a-entity position="0 2 -3"><a-text value="Anket placeholder" align="center" color="#FCD34D" width="6"></a-text></a-entity>
+      <a-box class="clickable scene-nav" position="0 0.3 -2.5" width="1.5" height="0.4" depth="0.05" color="#10B981" data-next-scene="5">
+        <a-text value="Bitir" position="0 0 0.04" align="center" color="#FFF" width="3"></a-text>
+      </a-box>
+    </a-entity>
+
+    <a-entity id="scene-5-tesekkur" visible="false">
+      <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#064E3B"></a-plane>
+      <a-entity position="0 2 -3"><a-text value="Tesekkurler!" align="center" color="#FCD34D" width="10"></a-text></a-entity>
+    </a-entity>
+
+    <!-- ====================================================== -->
+    <!-- CAMERA + HAND TRACKING + CONTROLLERS -->
+    <!-- ====================================================== -->
+    <a-entity id="camera-rig" position="0 0 0">
+      <a-entity id="camera" camera look-controls wasd-controls position="0 1.4 0">
+        <a-cursor color="#FCD34D" fuse="true" fuse-timeout="500" raycaster="objects: .clickable, .palpation-zone"></a-cursor>
+      </a-entity>
+
+      <!-- HAND TRACKING (Quest 3 native) -->
+      <a-entity id="hand-left"
+                hand-tracking-controls="hand: left; modelStyle: lowPoly; modelColor: #FCD34D"></a-entity>
+      <a-entity id="hand-right"
+                hand-tracking-controls="hand: right; modelStyle: lowPoly; modelColor: #FCD34D"></a-entity>
+
+      <!-- CONTROLLER fallback (eğer hand tracking aktif değilse) -->
+      <a-entity id="ctrl-left" laser-controls="hand: left" raycaster="objects: .clickable, .palpation-zone"></a-entity>
+      <a-entity id="ctrl-right" laser-controls="hand: right" raycaster="objects: .clickable, .palpation-zone"></a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // ====================================================
+    // STATE
+    // ====================================================
+    const params = new URLSearchParams(window.location.search);
+    const SHAM_MODE = params.get('mode') === 'sham';
+    const SESSION_ID = 'S-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const SESSION_START = Date.now();
+    const visited = new Set();
+
+    const maneuverInfo = {
+      tinel: 'TINEL SIGN\n\nMedian sinir trasesine perkusyon.\nDistal parestezi -> CTS pozitif.',
+      phalen: 'PHALEN TESTI\n\nBilek 60 sn fleksiyon.\nMedian parestezi -> CTS pozitif.',
+      finkelstein: 'FINKELSTEIN\n\nBasparmak fleks + ulnar deviasyon.\n1. dorsal kompartman agri -> De Quervain.',
+      watson: 'WATSON SCAPHOID SHIFT\n\nUlnar-radial deviasyon + skafoid tuberkul basi.\n"Klunk" -> skafolunat instabilite.',
+      grind: 'GRIND TESTI\n\n1. metakarp rotasyon + aksiyel basi.\nAgri/krepitasyon -> 1. CMC artriti.',
+      fcr: 'FCR TENDON TESTI\n\nFCR uzerinde direnc + fleksiyon.\nAgri -> FCR tendiniti.',
+      fds: 'FDS TENDON TESTI\n\nFDP ekstansiyonda iken PIP fleksiyon.\nFDS izolasyonu.',
+      bunnel: 'BUNNEL-LITTLER\n\nMCP ekst vs fleks PIP fleksiyon farki.\nIntrensek tightness.'
+    };
+
+    // ====================================================
+    // CUSTOM A-FRAME COMPONENT: palpation-zone
+    // - Index finger tip ile distance check
+    // - Hover/active state
+    // - Trigger after 1s sustained contact
+    // ====================================================
+    AFRAME.registerComponent('palpation-zone', {
+      schema: { maneuver: { type: 'string' } },
+      init: function() {
+        this.maneuver = this.data.maneuver;
+        this.contactStart = null;
+        this.activated = false;
+        this.tempVec = new THREE.Vector3();
+        this.zonePos = new THREE.Vector3();
+        this.originalColor = this.el.getAttribute('color');
+        this.fuseMs = 1000;
+        this.touchDistance = 0.04; // 4 cm
+      },
+      tick: function() {
+        if (this.activated) return;
+
+        // Index finger tip joint position (Quest 3 hand tracking)
+        const leftHand = document.querySelector('#hand-left');
+        const rightHand = document.querySelector('#hand-right');
+
+        this.el.object3D.getWorldPosition(this.zonePos);
+
+        let minDist = Infinity;
+        [leftHand, rightHand].forEach(hand => {
+          if (!hand || !hand.components || !hand.components['hand-tracking-controls']) return;
+          const tracking = hand.components['hand-tracking-controls'];
+          // index-finger-tip joint (Quest 3 native)
+          const jointObj = tracking.bones && tracking.bones['index-finger-tip'];
+          if (jointObj) {
+            jointObj.getWorldPosition(this.tempVec);
+            const dist = this.tempVec.distanceTo(this.zonePos);
+            if (dist < minDist) minDist = dist;
+          }
+        });
+
+        if (minDist < this.touchDistance) {
+          if (!this.contactStart) {
+            this.contactStart = Date.now();
+            this.el.setAttribute('color', '#10B981'); // hover yeşil
+            this.el.setAttribute('opacity', 0.7);
+          } else {
+            const elapsed = Date.now() - this.contactStart;
+            const progress = Math.min(elapsed / this.fuseMs, 1);
+            this.el.setAttribute('scale', `${1 + progress * 0.3} ${1 + progress * 0.3} ${1 + progress * 0.3}`);
+            if (elapsed >= this.fuseMs) {
+              this.activate();
+            }
+          }
+        } else {
+          if (this.contactStart) {
+            this.contactStart = null;
+            this.el.setAttribute('color', this.originalColor);
+            this.el.setAttribute('opacity', 0.4);
+            this.el.setAttribute('scale', '1 1 1');
+          }
+        }
+      },
+      activate: function() {
+        this.activated = true;
+        this.el.setAttribute('color', '#FBBF24'); // active sarı
+        this.el.setAttribute('opacity', 0.85);
+        this.el.setAttribute('scale', '1.3 1.3 1.3');
+
+        // Trigger maneuver info
+        const info = document.querySelector('#info-text');
+        const panel = document.querySelector('#info-panel');
+        if (info && panel) {
+          info.setAttribute('value', maneuverInfo[this.maneuver]);
+          panel.setAttribute('visible', 'true');
+        }
+
+        visited.add(this.maneuver);
+        const progressEl = document.querySelector('#progress-text');
+        if (progressEl) progressEl.setAttribute('value', `${visited.size} / 8 maneuver palpe edildi`);
+
+        if (visited.size === 8) {
+          const btn = document.querySelector('#proceed-quiz-btn');
+          if (btn) { btn.setAttribute('visible', 'true'); btn.setAttribute('color', '#10B981'); }
+        }
+
+        logEvent('palpation_trigger', { maneuver: this.maneuver, visited_count: visited.size });
+      }
+    });
+
+    // ====================================================
+    // SCENE NAVIGATION
+    // ====================================================
+    function goToScene(n) {
+      const idMap = { 1: 'scene-1-lobby', 2: 'scene-2-pratik', 3: 'scene-3-quiz', 4: 'scene-4-anket', 5: 'scene-5-tesekkur' };
+      const sceneNames = { 1: 'Lobby', 2: 'Klinik', 3: 'Quiz', 4: 'Anketler', 5: 'Tesekkur' };
+      Object.values(idMap).forEach(id => {
+        const el = document.querySelector('#' + id);
+        if (el) el.setAttribute('visible', 'false');
+      });
+      const target = document.querySelector('#' + idMap[n]);
+      if (target) target.setAttribute('visible', 'true');
+      document.querySelector('#sky-clinical').setAttribute('visible', n === 2 ? 'true' : 'false');
+      document.querySelector('#scene-indicator').textContent = `Scene ${n} / 5 - ${sceneNames[n]}` + (SHAM_MODE ? ' (SHAM)' : '');
+      logEvent('scene_enter', { scene: n });
+
+      if (n === 2 && SHAM_MODE) {
+        document.querySelectorAll('.palpation-zone').forEach(z => z.setAttribute('visible', 'false'));
+      }
+    }
+
+    // ====================================================
+    // ASSET LOAD HANDLERS
+    // ====================================================
+    function setStatus(elId, ok, label) {
+      const el = document.querySelector('#' + elId);
+      if (!el) return;
+      el.className = 'status-item ' + (ok ? 'status-loaded' : 'status-error');
+      el.textContent = (ok ? '✓ ' : '✗ ') + label + (ok ? ' yuklendi' : ' YUKLENEMEDI');
+    }
+    document.querySelector('#hospital-sky').addEventListener('load', () => setStatus('status-sky', true, 'Klinik skybox'));
+    document.querySelector('#hospital-sky').addEventListener('error', () => setStatus('status-sky', false, 'Klinik skybox'));
+    document.querySelector('#patient-entity').addEventListener('model-loaded', () => setStatus('status-patient', true, 'Hasta (Block Man)'));
+    document.querySelector('#patient-entity').addEventListener('model-error', () => setStatus('status-patient', false, 'Hasta'));
+    document.querySelector('#hand-entity').addEventListener('model-loaded', () => setStatus('status-hand', true, 'El (Novaky)'));
+    document.querySelector('#hand-entity').addEventListener('model-error', () => setStatus('status-hand', false, 'El'));
+
+    // Hand tracking status
+    const hStatus = document.querySelector('#hand-status');
+    document.querySelector('#hand-left').addEventListener('hand-tracking-extras-ready', () => {
+      hStatus.textContent = 'Hand tracking: ✓ aktif';
+      hStatus.style.background = 'rgba(16, 185, 129, 0.85)';
+    });
+    document.querySelector('a-scene').addEventListener('enter-vr', () => {
+      hStatus.textContent = 'VR mode aktif (HTTPS deploy gerek hand tracking için)';
+    });
+
+    // ====================================================
+    // EVENT BINDINGS
+    // ====================================================
+    document.querySelector('a-scene').addEventListener('loaded', () => {
+      document.querySelectorAll('.scene-nav').forEach(el => {
+        el.addEventListener('click', () => goToScene(parseInt(el.getAttribute('data-next-scene'))));
+      });
+
+      // Palpation zone click (gaze fallback — controller'sız demo için)
+      document.querySelectorAll('.palpation-zone').forEach(el => {
+        el.addEventListener('click', () => {
+          const m = el.getAttribute('data-maneuver');
+          // Manual activation if not already via hand tracking
+          const comp = el.components['palpation-zone'];
+          if (comp && !comp.activated) comp.activate();
+        });
+      });
+    });
+
+    // ====================================================
+    // LOGGING
+    // ====================================================
+    const sessionLog = [];
+    function logEvent(type, data) {
+      const entry = { ts: new Date().toISOString(), session_id: SESSION_ID, mode: SHAM_MODE ? 'sham' : 'intervention', type, data };
+      sessionLog.push(entry);
+      console.log(`[${entry.ts}] ${type}:`, JSON.stringify(data));
+    }
+    logEvent('session_start', { mode: SHAM_MODE ? 'sham' : 'intervention', userAgent: navigator.userAgent });
+
+    window.addEventListener('beforeunload', () => {
+      console.log('=== SESSION LOG DUMP ===', JSON.stringify(sessionLog, null, 2));
+    });
+  </script>
+</body>
+</html>
